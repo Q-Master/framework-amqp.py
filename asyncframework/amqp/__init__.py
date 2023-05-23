@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 __title__ = 'asyncframework-amqp'
 __description__ = 'Async framework amqp addon.'
@@ -13,3 +13,7 @@ __email__ = 'qmaster2000@gmail.com'
 
 __license__ = 'MIT'
 __copyright__ = 'Copyright 2019-2023 Vladimir Berezenko'
+
+
+from .connection import *
+from .pool import *
