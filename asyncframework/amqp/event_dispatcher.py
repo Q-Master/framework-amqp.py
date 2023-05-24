@@ -67,6 +67,12 @@ class AMQPEventDispatcher(Service):
         if callback in l:
             l.remove(callback)
 
+    async def broadcast(self, signal: str, data: Optional[Any] = None):
+        if not self.__conn:
+            raise RuntimeError('Not connected to AMQP')
+        event = AMQPEvent(event_name=signal, data=data)
+        await self.__conn.write(event.dumps())
+
     async def __start__(self):
         await self.__conn.connect(self.ioloop)
 
