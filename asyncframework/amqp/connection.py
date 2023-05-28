@@ -95,6 +95,8 @@ class AMQPConnection(ConnectionBase):
             self.__queue = await channel.declare_queue(
                 self.__queue_name, durable=self.__queue_durable, auto_delete=self.__queue_autodelete, exclusive=self.__queue_exclusive
             )
+            if not self.__receive_routing_key:
+                self.__receive_routing_key = self.__queue.name
             self.log.debug(f'Binding queue "{self.__queue.name}" to exchange "{self.__exchange_key}" with routing key {self.__receive_routing_key}')
             await self.__queue.bind(self.__exchange, routing_key=self.__receive_routing_key)
             await self.__queue.consume(self._amqp_message_received)
