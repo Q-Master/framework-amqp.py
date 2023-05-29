@@ -23,6 +23,10 @@ class AMQPConnection(ConnectionBase):
     __queue_autodelete: bool
     __queue_exclusive: bool
     __queue_name_as_rkey: bool
+    __consume_exclusive: bool
+    __consume_noack: bool
+    __consumer_tag: Optional[str]
+    __queue_name_as_consumer_tag: bool
     __prefetch_count: Optional[int]
 
     @property
@@ -48,6 +52,10 @@ class AMQPConnection(ConnectionBase):
             queue_autodelete: bool = False,
             queue_exclusive: bool = False,
             queue_name_as_rkey: bool = False,
+            consume_exclusive: bool = False,
+            consume_noack: bool = False,
+            consumer_tag: Optional[str] = None,
+            queue_name_as_consumer_tag: bool = False,
             prefetch_count: Optional[int] = None,
             **kwargs
     ) -> None:
@@ -78,6 +86,10 @@ class AMQPConnection(ConnectionBase):
         self.__queue_autodelete = queue_autodelete
         self.__queue_exclusive = queue_exclusive
         self.__queue_name_as_rkey = queue_name_as_rkey
+        self.__consume_exclusive = consume_exclusive
+        self.__consume_noack = consume_noack
+        self.__consumer_tag = consumer_tag
+        self.__queue_name_as_consumer_tag = queue_name_as_consumer_tag
         self.__prefetch_count = prefetch_count
 
     async def connect(self, ioloop: Optional[AbstractEventLoop], *args, **kwargs):
@@ -108,9 +120,11 @@ class AMQPConnection(ConnectionBase):
             )
             if self.__queue_name_as_rkey:
                 self.__receive_routing_key = self.__queue.name
+            if self.__queue_name_as_consumer_tag:
+                self.__consumer_tag = self.__queue.name
             self.log.debug(f'Binding queue "{self.__queue.name}" to exchange "{self.__exchange_key}" with routing key {self.__receive_routing_key}')
             await self.__queue.bind(self.__exchange, routing_key=self.__receive_routing_key)
-            await self.__queue.consume(self._amqp_message_received)
+            await self.__queue.consume(self._amqp_message_received, consumer_tag=self.__consumer_tag, exclusive=self.__consume_exclusive, no_ack=self.__consume_noack)
         except RuntimeError as e:
             self.log.error(f'Failed to connect(%s)', e)
         if not _connection or _connection.is_closed:
