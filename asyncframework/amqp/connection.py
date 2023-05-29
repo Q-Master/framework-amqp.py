@@ -22,7 +22,16 @@ class AMQPConnection(ConnectionBase):
     __queue_durable: bool
     __queue_autodelete: bool
     __queue_exclusive: bool
+    __queue_name_as_rkey: bool
     __prefetch_count: Optional[int]
+
+    @property
+    def exchange(self) -> str:
+        return self.__exchange_key or ''
+
+    @property
+    def routing_key(self) -> str:
+        return self.__receive_routing_key or ''
 
     def __init__(
             self,
@@ -38,6 +47,7 @@ class AMQPConnection(ConnectionBase):
             queue_durable: bool = True,
             queue_autodelete: bool = False,
             queue_exclusive: bool = False,
+            queue_name_as_rkey: bool = False,
             prefetch_count: Optional[int] = None,
             **kwargs
     ) -> None:
@@ -67,6 +77,7 @@ class AMQPConnection(ConnectionBase):
         self.__queue_durable = queue_durable
         self.__queue_autodelete = queue_autodelete
         self.__queue_exclusive = queue_exclusive
+        self.__queue_name_as_rkey = queue_name_as_rkey
         self.__prefetch_count = prefetch_count
 
     async def connect(self, ioloop: Optional[AbstractEventLoop], *args, **kwargs):
@@ -95,7 +106,7 @@ class AMQPConnection(ConnectionBase):
             self.__queue = await channel.declare_queue(
                 self.__queue_name, durable=self.__queue_durable, auto_delete=self.__queue_autodelete, exclusive=self.__queue_exclusive
             )
-            if not self.__receive_routing_key:
+            if self.__queue_name_as_rkey:
                 self.__receive_routing_key = self.__queue.name
             self.log.debug(f'Binding queue "{self.__queue.name}" to exchange "{self.__exchange_key}" with routing key {self.__receive_routing_key}')
             await self.__queue.bind(self.__exchange, routing_key=self.__receive_routing_key)

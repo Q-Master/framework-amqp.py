@@ -43,21 +43,17 @@ class AsyncSync:
 
 class AMQPEventDispatcher(Service):
     log = get_logger('AMQPEvent')
-    __conn: Optional[AMQPConnection] = None
+    __conn: AMQPConnection
     __signals: Dict[str, AsyncSync]
-    __exchange: str
-    __routing_key: str
 
-    def __init__(self, pool: AMQPPool, exchange: str, routing_key: str) -> None:
+    def __init__(self, conn: AMQPConnection) -> None:
         super().__init__()
-        self.__conn = AMQPConnection(pool, exchange, routing_key, routing_key, exchange_declare=False, queue_durable=False, queue_autodelete=True, queue_exclusive=True)
+        self.__conn = conn
         self.__conn.add_callbacks(
             on_message_received=self._on_message,
             on_message_returned=self._on_message_returned
         )
         self.__signals = {}
-        self.__exchange = exchange
-        self.__routing_key = routing_key
     
     def listen(self, signal: str, callback: Callable[[Any], None]):
         self.__signals.setdefault(signal, AsyncSync()).append(callback)
@@ -92,4 +88,4 @@ class AMQPEventDispatcher(Service):
             self.log.error(f'Unable to dispatch the message {body}')
 
     def _on_message_returned(self, body: str):
-        self.log.error(f'Message "{body}" to "{self.__exchange}" with "{self.__routing_key}" cant be delivered')
+        self.log.error(f'Message "{body}" to "{self.__conn.exchange}" with "{self.__conn.routing_key}" cant be delivered')
