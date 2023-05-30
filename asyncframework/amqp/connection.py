@@ -9,6 +9,7 @@ from .pool import AMQPPool
 
 class AMQPConnection(ConnectionBase):
     log = get_logger('AMQPConnection')
+    __channel: aio_pika.abc.AbstractChannel
     __exchange: aio_pika.abc.AbstractExchange
     __queue: Optional[aio_pika.abc.AbstractQueue] = None
     __connection_pool: AMQPPool
@@ -91,6 +92,8 @@ class AMQPConnection(ConnectionBase):
         self.__consumer_tag = consumer_tag
         self.__queue_name_as_consumer_tag = queue_name_as_consumer_tag
         self.__prefetch_count = prefetch_count
+        if self.__exchange_key.startswith('amq.'):
+            self.__exchange_declare = False
 
     async def connect(self, ioloop: Optional[AbstractEventLoop], *args, **kwargs):
         """Connect to the AMQP
@@ -101,21 +104,21 @@ class AMQPConnection(ConnectionBase):
         super().connect(*args, **kwargs)
         try:
             _connection: aio_pika.Connection = await self.__connection_pool.acquire(loop=ioloop)
-            channel = await _connection.channel()
+            self.__channel = await _connection.channel()
             if self.__prefetch_count:
-                await channel.set_qos(prefetch_count=self.__prefetch_count)
-            channel.return_callbacks.add(self._amqp_message_returned)
+                await self.__channel.set_qos(prefetch_count=self.__prefetch_count)
+            self.__channel.return_callbacks.add(self._amqp_message_returned)
             if self.__exchange_declare:
                 self.log.debug(f'Declaring exchange "{self.__exchange_key}" with type {str(self.__exchange_type)}')
-                self.__exchange = await channel.declare_exchange(
+                self.__exchange = await self.__channel.declare_exchange(
                     self.__exchange_key,
                     type=self.__exchange_type,
                     durable=self.__exchange_durable,
                 )
             else:
-                self.__exchange = await channel.get_exchange(self.__exchange_key)
+                self.__exchange = await self.__channel.get_exchange(self.__exchange_key)
             self.log.debug(f'Declaring queue "{self.__queue_name}"')
-            self.__queue = await channel.declare_queue(
+            self.__queue = await self.__channel.declare_queue(
                 self.__queue_name, durable=self.__queue_durable, auto_delete=self.__queue_autodelete, exclusive=self.__queue_exclusive
             )
             if self.__queue_name_as_rkey:
@@ -160,9 +163,26 @@ class AMQPConnection(ConnectionBase):
         await self.__exchange.publish(
             aio_pika.Message(
                 msg.encode('utf-8'),
+                *args,
                 content_encoding='utf-8',
                 reply_to=self.__receive_routing_key,
+                **kwargs
+            ),
+            routing_key=routing_key,
+        )
+    
+    async def write_to_exchange(self, exchange: Union[aio_pika.abc.AbstractExchange, str], msg: str, *args, routing_key: Optional[str] = None, **kwargs):
+        if isinstance(exchange, str):
+            exchange = await self.__channel.get_exchange(exchange)
+        self.log.debug(f'Sending envelope with routing_key "{routing_key}", msg: "{msg}" to {exchange.name}')
+        routing_key = routing_key or self.__send_routing_key
+        if not routing_key:
+            raise RuntimeError(f'Send routing key not set')
+        await exchange.publish(
+            aio_pika.Message(
+                msg.encode('utf-8'),
                 *args,
+                content_encoding='utf-8',
                 **kwargs
             ),
             routing_key=routing_key,
