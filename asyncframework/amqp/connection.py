@@ -144,13 +144,13 @@ class AMQPConnection(ConnectionBase):
         async with msg.process():
             body = msg.body.decode('utf-8')
             self.log.debug(f'Got envelope reply_to: {msg.reply_to}, body: {body}')
-            await self.on_message_received(body, routing_key=msg.reply_to)
+            await self.on_message_received(body, routing_key=msg.reply_to, headers=msg.headers)
 
     async def _amqp_message_returned(self, msg: aio_pika.message.ReturnedMessage):
         self.log.debug(f'Message returned "{msg}"')
         async with msg.process():
             body = msg.body.decode('utf-8')
-            await self.on_message_returned(body)
+            await self.on_message_returned(body, headers=msg.headers)
 
     async def write(self, msg: str, *args, routing_key: Optional[str] = None, **kwargs):
         self.log.debug(f'Sending envelope with routing_key "{routing_key}", msg: "{msg}"')
