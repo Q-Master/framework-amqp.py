@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
+from typing import Optional, Union, List, Tuple
 import aio_pika
-from typing import Optional, Union
 from asyncio import AbstractEventLoop
 from asyncframework.net.connection_base import ConnectionBase
 from asyncframework.log.log import get_logger
@@ -29,6 +29,7 @@ class AMQPConnection(ConnectionBase):
     __consumer_tag: Optional[str]
     __queue_name_as_consumer_tag: bool
     __prefetch_count: Optional[int]
+    __additional_binds: List[Tuple[aio_pika.abc.ExchangeParamType, str]]
 
     @property
     def exchange(self) -> str:
@@ -37,6 +38,10 @@ class AMQPConnection(ConnectionBase):
     @property
     def routing_key(self) -> str:
         return self.__receive_routing_key or ''
+
+    @property
+    def queue_name(self) -> Optional[str]:
+        return self.__queue.name if self.__queue else None
 
     def __init__(
             self,
@@ -94,6 +99,7 @@ class AMQPConnection(ConnectionBase):
         self.__prefetch_count = prefetch_count
         if self.__exchange_key.startswith('amq.'):
             self.__exchange_declare = False
+        self.__additional_binds = []
 
     async def connect(self, ioloop: Optional[AbstractEventLoop], *args, **kwargs):
         """Connect to the AMQP
@@ -147,13 +153,29 @@ class AMQPConnection(ConnectionBase):
         async with msg.process():
             body = msg.body.decode('utf-8')
             self.log.debug(f'Got envelope reply_to: {msg.reply_to}, body: {body}')
-            await self.on_message_received(body, routing_key=msg.reply_to, headers=msg.headers)
+            await self.on_message_received(body, reply_to=msg.reply_to, headers=msg.headers, app_id=msg.app_id)
 
     async def _amqp_message_returned(self, msg: aio_pika.message.ReturnedMessage):
         self.log.debug(f'Message returned "{msg}"')
         async with msg.process():
             body = msg.body.decode('utf-8')
-            await self.on_message_returned(body, headers=msg.headers)
+            await self.on_message_returned(body, headers=msg.headers, app_id=msg.app_id)
+
+    async def add_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str):
+        if (exchange, routing_key) not in self.__additional_binds:
+            if self.__queue:
+                self.__additional_binds.append((exchange, routing_key))
+                await self.__queue.bind(exchange, routing_key)
+        else:
+            self.log.error(f'Bind to {exchange}/{routing_key} already exists')
+
+    async def remove_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str):
+        if (exchange, routing_key) in self.__additional_binds:
+            if self.__queue:
+                self.__additional_binds.remove((exchange, routing_key))
+                await self.__queue.unbind(exchange, routing_key)
+        else:
+            self.log.error(f'Bind to {exchange}/{routing_key} does not exist')
 
     async def write(self, msg: str, *args, routing_key: Optional[str] = None, **kwargs):
         self.log.debug(f'Sending envelope with routing_key "{routing_key}", msg: "{msg}"')
@@ -182,6 +204,7 @@ class AMQPConnection(ConnectionBase):
             aio_pika.Message(
                 msg.encode('utf-8'),
                 *args,
+                reply_to=self.__queue.name if self.__queue else None,
                 content_encoding='utf-8',
                 **kwargs
             ),

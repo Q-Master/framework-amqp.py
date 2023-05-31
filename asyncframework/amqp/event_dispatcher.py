@@ -16,6 +16,7 @@ class AMQPEvent(Packet):
     event_name: Union[Field, str] = Field(string_t, 'e')
     data: Union[Field, Any] = Field(any_t, 'd')
     headers: Optional[HeadersType] = None
+    app_id: Optional[str] = None
 
 
 class AsyncSync:
@@ -76,10 +77,11 @@ class AMQPEventDispatcher(Service):
     async def __stop__(self):
         await self.__conn.close()
 
-    async def _on_message(self, body: str, routing_key: Optional[str] = None, headers: Optional[HeadersType] = None):
+    async def _on_message(self, body: str, reply_to: Optional[str] = None, headers: Optional[HeadersType] = None, app_id: Optional[str] = None):
         try:
             event = AMQPEvent.loads(body)
             event.headers = headers
+            event.app_id = app_id
             l = self.__signals.get(event.event_name, None)
             if l:
                 if l.not_sync:
@@ -89,5 +91,5 @@ class AMQPEventDispatcher(Service):
         except Exception as e:
             self.log.error(f'Unable to dispatch the message {body}')
 
-    def _on_message_returned(self, body: str, headers: Optional[HeadersType] = None):
+    def _on_message_returned(self, body: str, headers: Optional[HeadersType] = None, app_id: Optional[str] = None):
         self.log.error(f'Message "{body}" to "{self.__conn.exchange}" with "{self.__conn.routing_key}" cant be delivered')
