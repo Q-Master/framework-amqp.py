@@ -149,18 +149,6 @@ class AMQPConnection(ConnectionBase):
         super().close()
         self.log.info('Connection closed')
 
-    async def _amqp_message_received(self, msg: aio_pika.abc.AbstractIncomingMessage):
-        async with msg.process():
-            body = msg.body.decode('utf-8')
-            self.log.debug(f'Got envelope reply_to: {msg.reply_to}, body: {body}')
-            await self.on_message_received(body, reply_to=msg.reply_to, headers=msg.headers, app_id=msg.app_id)
-
-    async def _amqp_message_returned(self, msg: aio_pika.message.ReturnedMessage):
-        self.log.debug(f'Message returned "{msg}"')
-        async with msg.process():
-            body = msg.body.decode('utf-8')
-            await self.on_message_returned(body, headers=msg.headers, app_id=msg.app_id)
-
     async def add_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str):
         if (exchange, routing_key) not in self.__additional_binds:
             if self.__queue:
@@ -177,7 +165,7 @@ class AMQPConnection(ConnectionBase):
         else:
             self.log.error(f'Bind to {exchange}/{routing_key} does not exist')
 
-    async def write(self, msg: str, *args, routing_key: Optional[str] = None, **kwargs):
+    async def write(self, msg: str, *args, routing_key: Optional[str] = None, mandatory: bool = False, immediate: bool = False, **kwargs):
         self.log.debug(f'Sending envelope with routing_key "{routing_key}", msg: "{msg}"')
         routing_key = routing_key or self.__send_routing_key
         if not routing_key:
@@ -190,10 +178,15 @@ class AMQPConnection(ConnectionBase):
                 reply_to=self.__receive_routing_key,
                 **kwargs
             ),
+            mandatory=mandatory,
+            immediate=immediate,
             routing_key=routing_key,
         )
     
-    async def write_to_exchange(self, exchange: Union[aio_pika.abc.AbstractExchange, str], msg: str, *args, routing_key: Optional[str] = None, **kwargs):
+    async def write_to_exchange(self, 
+        exchange: Union[aio_pika.abc.AbstractExchange, str], msg: str, *args, 
+        routing_key: Optional[str] = None, mandatory: bool = False, immediate: bool = False, **kwargs
+        ):
         if isinstance(exchange, str):
             exchange = await self.__channel.get_exchange(exchange)
         self.log.debug(f'Sending envelope with routing_key "{routing_key}", msg: "{msg}" to {exchange.name}')
@@ -208,5 +201,23 @@ class AMQPConnection(ConnectionBase):
                 content_encoding='utf-8',
                 **kwargs
             ),
+            mandatory=mandatory,
+            immediate=immediate,
             routing_key=routing_key,
         )
+
+    async def get_exchange(self, exchange_name: str) -> aio_pika.abc.AbstractExchange:
+        return await self.__channel.get_exchange(exchange_name)
+
+    async def _amqp_message_received(self, msg: aio_pika.abc.AbstractIncomingMessage):
+        async with msg.process():
+            body = msg.body.decode('utf-8')
+            self.log.debug(f'Got envelope reply_to: {msg.reply_to}, body: {body}')
+            await self.on_message_received(body, reply_to=msg.reply_to, headers=msg.headers, app_id=msg.app_id)
+
+    async def _amqp_message_returned(self, msg: aio_pika.message.ReturnedMessage):
+        self.log.debug(f'Message returned "{msg}"')
+        async with msg.process():
+            body = msg.body.decode('utf-8')
+            await self.on_message_returned(body, headers=msg.headers, app_id=msg.app_id)
+
