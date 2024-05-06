@@ -213,11 +213,11 @@ class AMQPConnection(ConnectionBase):
         async with msg.process():
             body = msg.body.decode('utf-8')
             self.log.debug(f'Got envelope reply_to: {msg.reply_to}, body: {body}')
-            await self.on_message_received(body, reply_to=msg.reply_to, headers=msg.headers, app_id=msg.app_id)
+            await self.on_message_received(body, reply_to=msg.reply_to, headers=msg.headers, app_id=msg.app_id, correlation_id=msg.correlation_id)
 
     async def _amqp_message_returned(self, msg: aio_pika.message.ReturnedMessage):
         self.log.debug(f'Message returned "{msg}"')
         async with msg.process():
             body = msg.body.decode('utf-8')
-            await self.on_message_returned(body, headers=msg.headers, app_id=msg.app_id)
+            await self.on_message_returned(body, headers=msg.headers, app_id=msg.app_id, correlation_id=msg.correlation_id)
 
