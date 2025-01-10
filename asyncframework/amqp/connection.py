@@ -101,7 +101,7 @@ class AMQPConnection(ConnectionBase):
             self.__exchange_declare = False
         self.__additional_binds = []
 
-    async def connect(self, ioloop: Optional[AbstractEventLoop], *args, **kwargs):
+    async def connect(self, ioloop: Optional[AbstractEventLoop], *args, **kwargs) -> None:
         """Connect to the AMQP
 
         Args:
@@ -143,13 +143,13 @@ class AMQPConnection(ConnectionBase):
         await self.on_connection_made(_connection.transport)
         self.log.info('Connected OK')
 
-    async def close(self):
+    async def close(self) -> None:
         if self.__queue:
             await self.__queue.unbind(self.__exchange, routing_key=self.__receive_routing_key)
         super().close()
         self.log.info('Connection closed')
 
-    async def add_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str):
+    async def add_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str) -> None:
         if (exchange, routing_key) not in self.__additional_binds:
             if self.__queue:
                 self.__additional_binds.append((exchange, routing_key))
@@ -157,7 +157,7 @@ class AMQPConnection(ConnectionBase):
         else:
             self.log.error(f'Bind to {exchange}/{routing_key} already exists')
 
-    async def remove_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str):
+    async def remove_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str) -> None:
         if (exchange, routing_key) in self.__additional_binds:
             if self.__queue:
                 self.__additional_binds.remove((exchange, routing_key))
@@ -165,7 +165,7 @@ class AMQPConnection(ConnectionBase):
         else:
             self.log.error(f'Bind to {exchange}/{routing_key} does not exist')
 
-    async def write(self, msg: str, *args, routing_key: Optional[str] = None, mandatory: bool = False, immediate: bool = False, **kwargs):
+    async def write(self, msg: str, *args, routing_key: Optional[str] = None, mandatory: bool = False, immediate: bool = False, **kwargs) -> None:
         self.log.debug(f'Sending envelope with routing_key "{routing_key}", msg: "{msg}"')
         routing_key = routing_key or self.__send_routing_key
         if not routing_key:
@@ -186,7 +186,7 @@ class AMQPConnection(ConnectionBase):
     async def write_to_exchange(self, 
         exchange: Union[aio_pika.abc.AbstractExchange, str], msg: str, *args, 
         routing_key: Optional[str] = None, mandatory: bool = False, immediate: bool = False, **kwargs
-        ):
+        ) -> None:
         if isinstance(exchange, str):
             exchange = await self.__channel.get_exchange(exchange)
         self.log.debug(f'Sending envelope with routing_key "{routing_key}", msg: "{msg}" to {exchange.name}')
@@ -209,15 +209,30 @@ class AMQPConnection(ConnectionBase):
     async def get_exchange(self, exchange_name: str) -> aio_pika.abc.AbstractExchange:
         return await self.__channel.get_exchange(exchange_name)
 
-    async def _amqp_message_received(self, msg: aio_pika.abc.AbstractIncomingMessage):
+    async def _amqp_message_received(self, msg: aio_pika.abc.AbstractIncomingMessage) -> None:
         async with msg.process():
             body = msg.body.decode('utf-8')
             self.log.debug(f'Got envelope reply_to: {msg.reply_to}, body: {body}')
-            await self.on_message_received(body, reply_to=msg.reply_to, headers=msg.headers, app_id=msg.app_id, correlation_id=msg.correlation_id)
+            await self.on_message_received(
+                body, 
+                reply_to=msg.reply_to, 
+                headers=msg.headers, 
+                app_id=msg.app_id, 
+                correlation_id=msg.correlation_id,
+                content_type=msg.content_type,
+                msg_type=msg.type
+            )
 
-    async def _amqp_message_returned(self, msg: aio_pika.message.ReturnedMessage):
+    async def _amqp_message_returned(self, msg: aio_pika.message.ReturnedMessage) -> None:
         self.log.debug(f'Message returned "{msg}"')
         async with msg.process():
             body = msg.body.decode('utf-8')
-            await self.on_message_returned(body, headers=msg.headers, app_id=msg.app_id, correlation_id=msg.correlation_id)
+            await self.on_message_returned(
+                body, 
+                headers=msg.headers, 
+                app_id=msg.app_id, 
+                correlation_id=msg.correlation_id,
+                content_type=msg.content_type,
+                msg_type=msg.type
+            )
 
