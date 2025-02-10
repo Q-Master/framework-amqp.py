@@ -97,7 +97,7 @@ class AMQPConnection(ConnectionBase):
         self.__consumer_tag = consumer_tag
         self.__queue_name_as_consumer_tag = queue_name_as_consumer_tag
         self.__prefetch_count = prefetch_count
-        if self.__exchange_key.startswith('amq.'):
+        if self.__exchange_key.startswith('amq.') or not self.__exchange_key:
             self.__exchange_declare = False
         self.__additional_binds = []
 
