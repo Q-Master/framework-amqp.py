@@ -122,7 +122,10 @@ class AMQPConnection(ConnectionBase):
                     durable=self.__exchange_durable,
                 )
             else:
-                self.__exchange = await self.__channel.get_exchange(self.__exchange_key)
+                if self.__exchange_key:
+                    self.__exchange = await self.__channel.get_exchange(self.__exchange_key)
+                else:
+                    self.__exchange = self.__channel.default_exchange
             self.log.debug(f'Declaring queue "{self.__queue_name}"')
             self.__queue = await self.__channel.declare_queue(
                 self.__queue_name, durable=self.__queue_durable, auto_delete=self.__queue_autodelete, exclusive=self.__queue_exclusive
@@ -131,8 +134,9 @@ class AMQPConnection(ConnectionBase):
                 self.__receive_routing_key = self.__queue.name
             if self.__queue_name_as_consumer_tag:
                 self.__consumer_tag = self.__queue.name
-            self.log.debug(f'Binding queue "{self.__queue.name}" to exchange "{self.__exchange_key}" with routing key {self.__receive_routing_key}')
-            await self.__queue.bind(self.__exchange, routing_key=self.__receive_routing_key)
+            if self.__exchange_key:
+                self.log.debug(f'Binding queue "{self.__queue.name}" to exchange "{self.__exchange_key}" with routing key {self.__receive_routing_key}')
+                await self.__queue.bind(self.__exchange, routing_key=self.__receive_routing_key)
             await self.__queue.consume(self._amqp_message_received, consumer_tag=self.__consumer_tag, exclusive=self.__consume_exclusive, no_ack=self.__consume_noack)
         except RuntimeError as e:
             self.log.error(f'Failed to connect(%s)', e)
@@ -144,7 +148,7 @@ class AMQPConnection(ConnectionBase):
         self.log.info('Connected OK')
 
     async def close(self) -> None:
-        if self.__queue:
+        if self.__queue and self.__exchange_key:
             await self.__queue.unbind(self.__exchange, routing_key=self.__receive_routing_key)
         super().close()
         self.log.info('Connection closed')
