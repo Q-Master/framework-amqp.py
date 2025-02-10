@@ -109,7 +109,7 @@ class AMQPConnection(ConnectionBase):
         """
         super().connect(*args, **kwargs)
         try:
-            _connection: aio_pika.Connection = await self.__connection_pool.acquire(loop=ioloop)
+            _connection: aio_pika.Connection = await self.__connection_pool.acquire(ioloop)
             self.__channel = await _connection.channel()
             if self.__prefetch_count:
                 await self.__channel.set_qos(prefetch_count=self.__prefetch_count)
