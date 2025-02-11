@@ -10,7 +10,7 @@ from asyncframework.net.pool import StaticPool
 __all__ = ['AMQPPool']
 
 
-class AMQPPool(StaticPool):
+class AMQPPool(StaticPool[aio_pika.abc.AbstractRobustConnection]):
     """AMQP connection pool class"""
     log = get_logger('AMQPPool')
     _hosts: List[str]
@@ -34,4 +34,5 @@ class AMQPPool(StaticPool):
         return _connection
 
     async def destroy(self, elem: aio_pika.Connection):
+        self.log.info(f'Closing the connection {elem.url}')
         await elem.close()

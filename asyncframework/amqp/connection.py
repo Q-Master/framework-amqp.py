@@ -153,8 +153,6 @@ class AMQPConnection(ConnectionBase):
             await self.__queue.cancel(self.__consumer_tag)
             if self.__exchange_key:
                 await self.__queue.unbind(self.__exchange, routing_key=self.__receive_routing_key)
-        if self.__connection:
-            await self.__connection.close()
         super().close()
         self.log.info('Connection closed')
 
