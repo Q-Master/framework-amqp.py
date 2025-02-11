@@ -137,7 +137,7 @@ class AMQPConnection(ConnectionBase):
             if self.__exchange_key:
                 self.log.debug(f'Binding queue "{self.__queue.name}" to exchange "{self.__exchange_key}" with routing key {self.__receive_routing_key}')
                 await self.__queue.bind(self.__exchange, routing_key=self.__receive_routing_key)
-            await self.__queue.consume(self._amqp_message_received, consumer_tag=self.__consumer_tag, exclusive=self.__consume_exclusive, no_ack=self.__consume_noack)
+            self.__consumer_tag = await self.__queue.consume(self._amqp_message_received, consumer_tag=self.__consumer_tag, exclusive=self.__consume_exclusive, no_ack=self.__consume_noack)
         except RuntimeError as e:
             self.log.error(f'Failed to connect(%s)', e)
         if not _connection or _connection.is_closed:
