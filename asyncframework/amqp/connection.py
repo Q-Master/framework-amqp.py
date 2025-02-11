@@ -80,6 +80,7 @@ class AMQPConnection(ConnectionBase):
             prefetch_count (Optional[int], optional): the prefetch count. Defaults to None.
         """
         super().__init__(*args, **kwargs)
+        self.__connection = None
         self.__connection_pool = pool
         self.__receive_routing_key = receive_routing_key
         self.__send_routing_key: str = send_routing_key
@@ -109,8 +110,8 @@ class AMQPConnection(ConnectionBase):
         """
         super().connect(*args, **kwargs)
         try:
-            _connection: aio_pika.Connection = await self.__connection_pool.acquire(ioloop)
-            self.__channel = await _connection.channel()
+            self.__connection: aio_pika.Connection = await self.__connection_pool.acquire(ioloop)
+            self.__channel = await self.__connection.channel()
             if self.__prefetch_count:
                 await self.__channel.set_qos(prefetch_count=self.__prefetch_count)
             self.__channel.return_callbacks.add(self._amqp_message_returned)
@@ -140,11 +141,11 @@ class AMQPConnection(ConnectionBase):
             self.__consumer_tag = await self.__queue.consume(self._amqp_message_received, consumer_tag=self.__consumer_tag, exclusive=self.__consume_exclusive, no_ack=self.__consume_noack)
         except RuntimeError as e:
             self.log.error(f'Failed to connect(%s)', e)
-        if not _connection or _connection.is_closed:
+        if not self.__connection or self.__connection.is_closed:
             exc = RuntimeError('Connection cancelled')
             await self.on_connection_lost(exc)
             raise exc
-        await self.on_connection_made(_connection.transport)
+        await self.on_connection_made(self.__connection.transport)
         self.log.info('Connected OK')
 
     async def close(self) -> None:
@@ -152,6 +153,8 @@ class AMQPConnection(ConnectionBase):
             await self.__queue.cancel(self.__consumer_tag)
             if self.__exchange_key:
                 await self.__queue.unbind(self.__exchange, routing_key=self.__receive_routing_key)
+        if self.__connection:
+            await self.__connection.close()
         super().close()
         self.log.info('Connection closed')
 
