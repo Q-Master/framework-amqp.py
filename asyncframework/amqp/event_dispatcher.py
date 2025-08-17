@@ -1,8 +1,9 @@
 # -*- coding:utf-8 -*-
-from typing import Optional, Dict, Callable, Any, List, Union
+from typing import Optional, Dict, Callable, Any, List
 from asyncio import gather, Future
 from aio_pika.abc import HeadersType
-from packets import Packet, Field, string_t, any_t
+from packets import Packet, makeField
+from packets.processors import string_t, any_t
 from asyncframework.log import get_logger
 from asyncframework.app import Service
 from asyncframework.aio import is_async
@@ -13,8 +14,8 @@ __all__ = ['AMQPEventDispatcher', 'AMQPEvent']
 
 
 class AMQPEvent(Packet):
-    event_name: Union[Field, str] = Field(string_t, 'e')
-    data: Union[Field, Any] = Field(any_t, 'd')
+    event_name: str = makeField(string_t, 'e', required=True)
+    data: Optional[Any] = makeField(any_t, 'd')
     headers: Optional[HeadersType] = None
     app_id: Optional[str] = None
 
@@ -85,7 +86,7 @@ class AMQPEventDispatcher(Service):
             l = self.__signals.get(event.event_name, None)
             if l:
                 if l.not_sync:
-                    await gather(c(event.data) for c in l.not_sync)
+                    await gather(*[c(event.data) for c in l.not_sync])
                 for c in l.sync:
                     c(event.data)
         except Exception as e:

@@ -12,6 +12,7 @@ class AMQPConnection(ConnectionBase):
     __channel: aio_pika.abc.AbstractChannel
     __exchange: aio_pika.abc.AbstractExchange
     __queue: Optional[aio_pika.abc.AbstractQueue] = None
+    __connection: Optional[aio_pika.abc.AbstractRobustConnection] = None
     __connection_pool: AMQPPool
     __receive_routing_key: str
     __send_routing_key: str
@@ -80,7 +81,6 @@ class AMQPConnection(ConnectionBase):
             prefetch_count (Optional[int], optional): the prefetch count. Defaults to None.
         """
         super().__init__(*args, **kwargs)
-        self.__connection = None
         self.__connection_pool = pool
         self.__receive_routing_key = receive_routing_key
         self.__send_routing_key: str = send_routing_key
@@ -108,9 +108,11 @@ class AMQPConnection(ConnectionBase):
         Args:
             ioloop (Optional[AbstractEventLoop]): event loop
         """
-        super().connect(*args, **kwargs)
+        await super().connect(*args, **kwargs)
         try:
-            self.__connection: aio_pika.Connection = await self.__connection_pool.acquire(ioloop)
+            self.__connection = await self.__connection_pool.acquire(ioloop)
+            if self.__connection is None:
+                raise RuntimeError(f'Failed to open connection')
             self.__channel = await self.__connection.channel()
             if self.__prefetch_count:
                 await self.__channel.set_qos(prefetch_count=self.__prefetch_count)
@@ -150,10 +152,11 @@ class AMQPConnection(ConnectionBase):
 
     async def close(self) -> None:
         if self.__queue:
-            await self.__queue.cancel(self.__consumer_tag)
+            if self.__consumer_tag:
+                await self.__queue.cancel(self.__consumer_tag)
             if self.__exchange_key:
                 await self.__queue.unbind(self.__exchange, routing_key=self.__receive_routing_key)
-        super().close()
+        await super().close()
         self.log.info('Connection closed')
 
     async def add_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str) -> None:
@@ -230,7 +233,12 @@ class AMQPConnection(ConnectionBase):
                 msg_type=msg.type
             )
 
-    async def _amqp_message_returned(self, msg: aio_pika.message.ReturnedMessage) -> None:
+
+    async def _amqp_message_returned(
+        self,
+        channel: Optional[aio_pika.abc.AbstractChannel],
+        msg: aio_pika.abc.AbstractIncomingMessage,
+    ) -> None:
         self.log.debug(f'Message returned "{msg}"')
         async with msg.process():
             body = msg.body.decode('utf-8')
