@@ -98,7 +98,7 @@ class AMQPConnection(ConnectionBase):
         self.__consumer_tag = consumer_tag
         self.__queue_name_as_consumer_tag = queue_name_as_consumer_tag
         self.__prefetch_count = prefetch_count
-        if self.__exchange_key.startswith('amq.') or not self.__exchange_key:
+        if exchange_declare and not self._is_exchange_declarable(exchange_key):
             self.__exchange_declare = False
         self.__additional_binds = []
 
@@ -156,8 +156,24 @@ class AMQPConnection(ConnectionBase):
                 await self.__queue.cancel(self.__consumer_tag)
             if self.__exchange_key:
                 await self.__queue.unbind(self.__exchange, routing_key=self.__receive_routing_key)
+            for exchange, rk in self.__additional_binds:
+                await self.__queue.unbind(exchange, routing_key=rk)
         await super().close()
         self.log.info('Connection closed')
+
+    async def declare_exchange(self, 
+        exchange_key: str, exchange_type: aio_pika.ExchangeType = aio_pika.ExchangeType.DIRECT,
+        exchange_durable: bool = True
+        ) -> aio_pika.abc.ExchangeParamType:
+        if self._is_exchange_declarable(exchange_key):
+            exchange = await self.__channel.declare_exchange(
+                    exchange_key,
+                    type=exchange_type,
+                    durable=exchange_durable,
+                )
+        else:
+            exchange = await self.__channel.get_exchange(exchange_key)
+        return exchange
 
     async def add_bind(self, exchange: aio_pika.abc.ExchangeParamType, routing_key: str) -> None:
         if (exchange, routing_key) not in self.__additional_binds:
@@ -233,6 +249,10 @@ class AMQPConnection(ConnectionBase):
                 msg_type=msg.type
             )
 
+    def _is_exchange_declarable(self, exchange_key: str) -> bool:
+        if exchange_key.startswith('amq.') or not exchange_key:
+            return False
+        return True
 
     async def _amqp_message_returned(
         self,
