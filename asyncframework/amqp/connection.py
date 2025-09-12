@@ -263,11 +263,7 @@ class AMQPConnection(ConnectionBase):
         async with msg.process():
             body = msg.body.decode('utf-8')
             await self.on_message_returned(
-                body, 
-                headers=msg.headers, 
-                app_id=msg.app_id, 
-                correlation_id=msg.correlation_id,
-                content_type=msg.content_type,
-                msg_type=msg.type
+                body,
+                amqp_msg=msg
             )
 
