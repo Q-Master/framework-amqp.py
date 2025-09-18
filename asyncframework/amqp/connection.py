@@ -164,7 +164,7 @@ class AMQPConnection(ConnectionBase):
     async def declare_exchange(self, 
         exchange_key: str, exchange_type: aio_pika.ExchangeType = aio_pika.ExchangeType.DIRECT,
         exchange_durable: bool = True
-        ) -> aio_pika.abc.ExchangeParamType:
+        ) -> aio_pika.abc.AbstractExchange:
         if self._is_exchange_declarable(exchange_key):
             exchange = await self.__channel.declare_exchange(
                     exchange_key,
