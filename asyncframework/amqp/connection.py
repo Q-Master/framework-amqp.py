@@ -191,9 +191,9 @@ class AMQPConnection(ConnectionBase):
         else:
             self.log.error(f'Bind to {exchange}/{routing_key} does not exist')
 
-    async def write(self, msg: str, *args, routing_key: Optional[str] = None, mandatory: bool = False, immediate: bool = False, **kwargs) -> None:
+    async def write(self, msg: str, *args, routing_key: Optional[str] = None, mandatory: bool = False, immediate: bool = False, reply_to: Optional[str] = None, **kwargs) -> None:
         self.log.debug(f'Sending envelope with routing_key "{routing_key}", msg: "{msg}"')
-        routing_key = routing_key or self.__send_routing_key
+        routing_key = routing_key or self.__send_routing_key or reply_to
         if not routing_key:
             raise RuntimeError(f'Send routing key not set')
         await self.__exchange.publish(

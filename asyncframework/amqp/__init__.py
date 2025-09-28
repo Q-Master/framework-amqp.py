@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 
 __title__ = 'asyncframework-amqp'
 __description__ = 'Async framework amqp addon.'
