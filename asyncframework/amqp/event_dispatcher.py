@@ -3,7 +3,8 @@ from typing import Optional, Dict, Callable, Any, List
 from asyncio import gather, Future
 from aio_pika.abc import HeadersType
 from packets import Packet, makeField
-from packets.processors import string_t, any_t
+from packets.typedef.string_t import string_t
+from packets.typedef.any_t import any_t
 from asyncframework.log import get_logger
 from asyncframework.app import Service
 from asyncframework.aio import is_async
