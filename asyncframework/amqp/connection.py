@@ -148,7 +148,7 @@ class AMQPConnection(ConnectionBase):
             await self.on_connection_lost(exc)
             raise exc
         await self.on_connection_made(self.__connection.transport)
-        self.log.info('Connected OK')
+        self.log.debug('Connected OK')
 
     async def close(self) -> None:
         if self.__queue:
@@ -159,7 +159,7 @@ class AMQPConnection(ConnectionBase):
             for exchange, rk in self.__additional_binds:
                 await self.__queue.unbind(exchange, routing_key=rk)
         await super().close()
-        self.log.info('Connection closed')
+        self.log.debug('Connection closed')
 
     async def declare_exchange(self, 
         exchange_key: str, exchange_type: aio_pika.ExchangeType = aio_pika.ExchangeType.DIRECT,

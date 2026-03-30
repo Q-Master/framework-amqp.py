@@ -27,7 +27,7 @@ class AMQPPool(StaticPool[aio_pika.abc.AbstractRobustConnection]):
             idx = randint(0, len(self._hosts)-1)
         try:
             _connection = await aio_pika.connect_robust(self._hosts[idx], loop=ioloop)
-            self.log.info(f'Connected to amqp-host {self._hosts[idx]}')
+            self.log.debug(f'Connected to amqp-host {self._hosts[idx]}')
         except RuntimeError as e:
             self.log.error(f'Connection to host {self._hosts[idx]} failed ({e})')
             raise

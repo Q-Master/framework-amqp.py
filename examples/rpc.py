@@ -90,7 +90,6 @@ class Example(Script):
         self.log.info('Sent request')
         await self.message_processed
         self.log.info(f'Message processed ok {time.time() - start_time}')
-
     
 
 if __name__ == '__main__':
