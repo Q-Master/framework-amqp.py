@@ -34,5 +34,5 @@ class AMQPPool(StaticPool[aio_pika.abc.AbstractRobustConnection]):
         return _connection
 
     async def destroy(self, elem: aio_pika.Connection):
-        self.log.info(f'Closing the connection {elem.url}')
+        self.log.debug(f'Closing the connection {elem.url}')
         await elem.close()
