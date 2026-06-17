@@ -4,6 +4,7 @@ from asyncframework.app import main
 from asyncframework.app.script import Script, Service
 from asyncframework.log import get_logger, init_logging
 from asyncframework.rpc import RPC, rpc_method
+from asyncframework.rpc.types import RPCException
 from asyncframework.util.datetime import time
 from asyncframework.amqp import AMQPPool, AMQPConnection
 
@@ -45,9 +46,14 @@ class Example(Script):
         @rpc_method()
         async def process_request(self, **kwargs):
             self.log.info('Received request')
-            self._ex.message_processed.set_result(None)
             self.log.info('Request processed')
             return True
+        
+        @rpc_method()
+        async def process_request_fail(self, **kwargs):
+            self.log.info('Received Fail request')
+            self.log.info('Request Fail processed')
+            raise ValueError('Will definitely fail')
 
 
     def __init__(self, config):
@@ -86,9 +92,12 @@ class Example(Script):
     async def __body__(self):
         start_time = time.time()
         self.log.info('Sending request')
-        await self._rpc.call('process_request', response_required=False, headers={'rpc': 1})
+        res = await self._rpc.call('process_request', headers={'rpc': 1})
         self.log.info('Sent request')
-        await self.message_processed
+        try:
+            await self._rpc.call('process_request_fail', headers={'rpc': 1})
+        except RPCException:
+            self.log.info('Exception caught OK')
         self.log.info(f'Message processed ok {time.time() - start_time}')
     
 

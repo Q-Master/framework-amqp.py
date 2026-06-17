@@ -1,3 +1,45 @@
+[project]
+authors = [
+    {name="Vladimir Berezenko", email="qmaster2000@gmail.com"}
+]
+name = "asyncframework-amqp"
+description = "Async framework amqp addon."
+dynamic = ["version"]
+requires-python = ">= 3.10"
+dependencies = [
+    "asyncframework @ git+https://github.com/Q-Master/framework.py.git@main",
+    "aio_pika==9.5.4"
+]
+classifiers = [
+    "Development Status :: 5", 
+    "Intended Audience :: Developers", 
+    "Programming Language :: Python", 
+    "Programming Language :: Python :: 3", 
+    "Programming Language :: Python :: 3 :: Only", 
+    "Programming Language :: Python :: 3.10", 
+    "Programming Language :: Python :: 3.11", 
+    "Programming Language :: Python :: 3.12", 
+    "Programming Language :: Python :: 3.13", 
+    "Programming Language :: Python :: 3.14", 
+    "Operating System :: OS Independent", 
+    "Topic :: Software Development :: Libraries", 
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+keywords = [
+    "asyncframework", 
+    "amqp", 
+    "rabbitmq", 
+    "async", 
+    "service"
+]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "ReadMe.md"
+
+[project.urls]
+Homepage = "https://github.com/Q-Master/framework-amqp.py"
+Repository = "https://github.com/Q-Master/framework-amqp.py"
+Issues = "https://github.com/Q-Master/framework-amqp.py/issues"
 
 [build-system]
 requires = ["setuptools"]

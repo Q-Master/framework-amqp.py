@@ -241,12 +241,12 @@ class AMQPConnection(ConnectionBase):
             self.log.debug(f'Got envelope reply_to: {msg.reply_to}, body: {body}')
             await self.on_message_received(
                 body, 
-                reply_to=msg.reply_to, 
-                headers=msg.headers, 
-                app_id=msg.app_id, 
+                msg_type=msg.type,
                 correlation_id=msg.correlation_id,
                 content_type=msg.content_type,
-                msg_type=msg.type
+                app_id=msg.app_id, 
+                headers=msg.headers, 
+                reply_to=msg.reply_to
             )
 
     def _is_exchange_declarable(self, exchange_key: str) -> bool:
@@ -264,6 +264,8 @@ class AMQPConnection(ConnectionBase):
             body = msg.body.decode('utf-8')
             await self.on_message_returned(
                 body,
+                correlation_id=msg.correlation_id,
+                app_id=msg.app_id,
+                reply_to=msg.reply_to,
                 amqp_msg=msg
             )
-
