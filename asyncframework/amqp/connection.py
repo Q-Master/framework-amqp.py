@@ -140,9 +140,8 @@ class AMQPConnection(ConnectionBase):
             if self.__exchange_key:
                 self.log.debug(f'Binding queue "{self.__queue.name}" to exchange "{self.__exchange_key}" with routing key {self.__receive_routing_key}')
                 await self.__queue.bind(self.__exchange, routing_key=self.__receive_routing_key)
-            self.__consumer_tag = await self.__queue.consume(self._amqp_message_received, consumer_tag=self.__consumer_tag, exclusive=self.__consume_exclusive, no_ack=self.__consume_noack)
-        except RuntimeError as e:
-            self.log.error(f'Failed to connect(%s)', e)
+        except Exception as e:
+            self.log.error(f'Failed to connect: {e}')
         if not self.__connection or self.__connection.is_closed:
             exc = RuntimeError('Connection cancelled')
             await self.on_connection_lost(exc)
@@ -152,14 +151,27 @@ class AMQPConnection(ConnectionBase):
 
     async def close(self) -> None:
         if self.__queue:
-            if self.__consumer_tag:
-                await self.__queue.cancel(self.__consumer_tag)
+            await self.cancel()
             if self.__exchange_key:
                 await self.__queue.unbind(self.__exchange, routing_key=self.__receive_routing_key)
             for exchange, rk in self.__additional_binds:
                 await self.__queue.unbind(exchange, routing_key=rk)
         await super().close()
         self.log.debug('Connection closed')
+
+    async def consume(self):
+        try:
+            if self.__queue:
+                self.__consumer_tag = await self.__queue.consume(self._amqp_message_received, consumer_tag=self.__consumer_tag, exclusive=self.__consume_exclusive, no_ack=self.__consume_noack)
+                self.log.info(f'Started consuming {self.__consumer_tag}')
+        except Exception as e:
+            self.log.error(f'Failed to start consuming')
+            raise
+
+    async def cancel(self):
+        if self.__queue and self.__consumer_tag:
+            await self.__queue.cancel(self.__consumer_tag)
+            self.log.info(f'Stopped consuming {self.__consumer_tag}')
 
     async def declare_exchange(self, 
         exchange_key: str, exchange_type: aio_pika.ExchangeType = aio_pika.ExchangeType.DIRECT,

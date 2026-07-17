@@ -8,6 +8,7 @@ from asyncframework.rpc.types import RPCException
 from asyncframework.util.datetime import time
 from asyncframework.amqp import AMQPPool, AMQPConnection
 
+AMQP_URLS = ['amqp://127.0.0.1:5672/example']
 
 class Example(Script):
     log = get_logger('Example')
@@ -19,7 +20,7 @@ class Example(Script):
         def __init__(self, ex: 'Example') -> None:
             super().__init__(linear=False)
             self._ex = ex
-            self._pool = AMQPPool(['amqp://127.0.0.1:5672/example'], 1)
+            self._pool = AMQPPool(AMQP_URLS, 1)
             self._connector = AMQPConnection(
                 self._pool, '',
                 receive_routing_key='example',
@@ -37,6 +38,7 @@ class Example(Script):
         async def __start__(self):
             self.log.info('Starting example AMQP Listener')
             await self._connector.connect(self.ioloop)
+            await self._connector.consume()
 
         async def __stop__(self):
             self.log.info('Stopping example AMQP Listener')
@@ -60,7 +62,7 @@ class Example(Script):
         init_logging(True, log_level='INFO')
         super().__init__('')
         self._receiver = Example.Receiver(self)
-        self._pool = AMQPPool(['amqp://127.0.0.1:5672/example'], 1)
+        self._pool = AMQPPool(AMQP_URLS, 1)
         self._connector = AMQPConnection(
             self._pool, '',
             receive_routing_key='',
@@ -81,6 +83,7 @@ class Example(Script):
         self.message_processed = asyncio.Future()
         await self._receiver.start(self.ioloop)
         await self._connector.connect(self.ioloop)
+        await self._connector.consume()
         self.message_processed = asyncio.Future()
 
     async def __stop__(self):
