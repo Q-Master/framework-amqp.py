@@ -279,5 +279,5 @@ class AMQPConnection(ConnectionBase):
                 correlation_id=msg.correlation_id,
                 app_id=msg.app_id,
                 reply_to=msg.reply_to,
-                amqp_msg=msg
+                raw_msg=msg
             )

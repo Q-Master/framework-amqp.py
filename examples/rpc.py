@@ -34,6 +34,11 @@ class Example(Script):
                 self,
                 self._connector
             )
+            self._rpc.set_on_message_returned(self._on_message_returned)
+
+        async def _on_message_returned(self, raw_msg) -> bool:
+            self.log.error(f'Ошибка доставки сообщения {raw_msg.body}, {raw_msg.info()}')
+            return True
         
         async def __start__(self):
             self.log.info('Starting example AMQP Listener')
@@ -77,6 +82,11 @@ class Example(Script):
             self._connector,
             dont_receive=True
         )
+        self._rpc.set_on_message_returned(self._on_message_returned)
+
+    async def _on_message_returned(self, raw_msg) -> bool:
+        self.log.error(f'Ошибка доставки сообщения {raw_msg.body}, {raw_msg.info()}')
+        return True
 
     async def __start__(self):
         self.log.info('Starting example AMQP script')
